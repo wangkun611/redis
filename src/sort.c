@@ -164,7 +164,9 @@ int sortCompare(const void *s1, const void *s2) {
                     cmp = 1;
             } else {
                 /* We have both the objects, compare them. */
-                if (server.sort_store) {
+                if (server.sort_episode) {
+                    cmp = episodeStringObjects(so1->u.cmpobj,so2->u.cmpobj);
+                } else  if (server.sort_store) {
                     cmp = compareStringObjects(so1->u.cmpobj,so2->u.cmpobj);
                 } else {
                     /* Here we can use strcoll() directly as we are sure that
@@ -174,7 +176,9 @@ int sortCompare(const void *s1, const void *s2) {
             }
         } else {
             /* Compare elements directly. */
-            if (server.sort_store) {
+            if (server.sort_episode) {
+                cmp = episodeStringObjects(so1->obj,so2->obj);
+            } else if (server.sort_store) {
                 cmp = compareStringObjects(so1->obj,so2->obj);
             } else {
                 cmp = collateStringObjects(so1->obj,so2->obj);
@@ -189,7 +193,7 @@ int sortCompare(const void *s1, const void *s2) {
 void sortCommand(redisClient *c) {
     list *operations;
     unsigned int outputlen = 0;
-    int desc = 0, alpha = 0;
+    int desc = 0, alpha = 0, episode = 0;
     long limit_start = 0, limit_count = -1, start, end;
     int j, dontsort = 0, vectorlen;
     int getop = 0; /* GET operation counter */
@@ -228,6 +232,9 @@ void sortCommand(redisClient *c) {
             desc = 0;
         } else if (!strcasecmp(c->argv[j]->ptr,"desc")) {
             desc = 1;
+        } else if (!strcasecmp(c->argv[j]->ptr,"episode")) {
+            episode = 1;
+            alpha = 1;
         } else if (!strcasecmp(c->argv[j]->ptr,"alpha")) {
             alpha = 1;
         } else if (!strcasecmp(c->argv[j]->ptr,"limit") && leftargs >= 2) {
@@ -447,6 +454,7 @@ void sortCommand(redisClient *c) {
     if (dontsort == 0) {
         server.sort_desc = desc;
         server.sort_alpha = alpha;
+        server.sort_episode = episode;
         server.sort_bypattern = sortby ? 1 : 0;
         server.sort_store = storekey ? 1 : 0;
         if (sortby && (start != 0 || end != vectorlen-1))

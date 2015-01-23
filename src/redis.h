@@ -795,6 +795,7 @@ struct redisServer {
      * have to take this state global, in order to pass it to sortCompare() */
     int sort_desc;
     int sort_alpha;
+    int sort_episode;
     int sort_bypattern;
     int sort_store;
     /* Zip structure config, see redis.conf for more information  */
@@ -1065,6 +1066,7 @@ int getLongDoubleFromObjectOrReply(redisClient *c, robj *o, long double *target,
 char *strEncoding(int encoding);
 int compareStringObjects(robj *a, robj *b);
 int collateStringObjects(robj *a, robj *b);
+int episodeStringObjects(robj *a, robj *b);
 int equalStringObjects(robj *a, robj *b);
 unsigned long estimateObjectIdleTime(robj *o);
 

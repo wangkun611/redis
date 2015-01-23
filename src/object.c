@@ -389,11 +389,13 @@ robj *getDecodedObject(robj *o) {
 
 #define REDIS_COMPARE_BINARY (1<<0)
 #define REDIS_COMPARE_COLL (1<<1)
+#define REDIS_COMPARE_EPISODE  (1<<2)
 
 int compareStringObjectsWithFlags(robj *a, robj *b, int flags) {
     redisAssertWithInfo(NULL,a,a->type == REDIS_STRING && b->type == REDIS_STRING);
     char bufa[128], bufb[128], *astr, *bstr;
     size_t alen, blen, minlen;
+    size_t ai, bi, aj, bj;
 
     if (a == b) return 0;
     if (a->encoding != REDIS_ENCODING_RAW) {
@@ -412,6 +414,41 @@ int compareStringObjectsWithFlags(robj *a, robj *b, int flags) {
     }
     if (flags & REDIS_COMPARE_COLL) {
         return strcoll(astr,bstr);
+    } else if (flags & REDIS_COMPARE_EPISODE) {
+        int cmp;
+        size_t adigit, bdigit;
+        for (ai = 0, bi = 0; ai < alen && bi < blen; ai++, bi++) {
+            if (isdigit(astr[ai]) && isdigit(bstr[bi])) {
+                // find end of digit
+                for (aj = ai + 1; aj < alen && isdigit(astr[aj]); aj++) { }
+                for (bj = bi + 1; bj < blen && isdigit(bstr[bj]); bj++) { }
+                adigit = aj - ai;
+                bdigit = bj - bi;
+                // skip precede '0'
+                for (; ai < alen && astr[ai] == '0'; ai++) { }
+                for (; bi < blen && bstr[bi] == '0'; bi++) { }
+                cmp = (aj - ai) - (bj - bi);
+                if (cmp != 0) {
+                    return cmp;
+                }
+                cmp = memcmp(astr + ai, bstr + bi, aj - ai);
+                if (cmp != 0) {
+                    return cmp;
+                }
+                // define 01 < 1
+                if (adigit != bdigit) {
+                    return -(adigit - bdigit);
+                }
+                ai = aj - 1;
+                bi = bj - 1;
+            } else {
+                cmp = astr[ai] - bstr[bi];
+                if (cmp != 0) {
+                    return cmp;
+                }
+            }
+        }
+        return alen-blen;
     } else {
         int cmp;
 
@@ -430,6 +467,11 @@ int compareStringObjects(robj *a, robj *b) {
 /* Wrapper for compareStringObjectsWithFlags() using collation. */
 int collateStringObjects(robj *a, robj *b) {
     return compareStringObjectsWithFlags(a,b,REDIS_COMPARE_COLL);
+}
+
+/* Wrapper for compareStringObjectsWithFlags() using episode. */
+int episodeStringObjects(robj *a, robj *b) {
+    return compareStringObjectsWithFlags(a,b,REDIS_COMPARE_EPISODE);
 }
 
 /* Equal string objects return 1 if the two objects are the same from the
